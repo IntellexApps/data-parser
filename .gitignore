@@ -1,0 +1,10 @@
+# Package manager
+/vendor/
+
+# OS generated files
+.DS_Store*
+ehthumbs.db
+Thumbs.db
+
+# IDE generated files
+.idea/
