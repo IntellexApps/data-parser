@@ -1,6 +1,7 @@
 {
 	"name": "intellex/data-parser",
-	"version": "2.0.0",
+	"description": "Easy to use lib to parse arrays into objects",
+	"version": "2.0.1-alpha",
 	"license": "MIT",
 	"minimum-stability": "alpha",
 	"authors": [
