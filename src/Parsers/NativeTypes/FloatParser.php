@@ -17,7 +17,7 @@ class FloatParser implements Parser {
 	}
 
 	/** @inheritdoc */
-	public function defineTargetClass(): string {
+	public function targetClass(): string {
 		return 'float';
 	}
 }

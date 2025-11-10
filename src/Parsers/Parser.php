@@ -14,14 +14,14 @@ interface Parser {
 	 *
 	 * @return class-string<T> The fully qualified name of the class this parser handles.
 	 */
-	public function defineTargetClass(): string;
+	public function targetClass(): string;
 
 	/**
 	 * Parse a raw value to a type or a class.
 	 *
 	 * @param mixed $value The raw value to parse.
 	 *
-	 * @return T The parsed value.
+	 * @return ?T The parsed value.
 	 */
 	public function parse(mixed $value): mixed;
 }

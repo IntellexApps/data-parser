@@ -3,12 +3,11 @@
 namespace Intellex\DataParser\Tests\Entities;
 
 /**
- * The category of an {@see Article}.
+ * Simple model.
  */
-class ArticleCategory {
+class SimpleModel {
 	public function __construct(
 		public readonly int $id,
-		public readonly ?int $parentId,
 		public readonly string $name,
 	) {
 	}

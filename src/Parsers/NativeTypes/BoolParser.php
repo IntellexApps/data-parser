@@ -11,17 +11,24 @@ use Intellex\DataParser\Parsers\Parser;
  */
 class BoolParser implements Parser {
 
-	/**
-	 * @param string[] $falseValues The list of values that are considered to be false.
-	 */
 	public function __construct(
-		private readonly array $falseValues = [ '', '0', 'f', 'false', 'no', 'off', 'null' ]
+		/** @var string[] $nullable If set to false, null values will be parsed as false. */
+		private readonly bool $nullable = false,
+		/** @var string[] $falseValues The list of values that are considered to be false. */
+		private readonly array $falseValues = [ '', '0', 'f', 'false', 'n', 'no', 'off', 'null' ],
 	) {
 	}
 
 	/** @inheritdoc */
-	public function parse(mixed $value): bool {
-		if (in_array(strtolower((string) $value), $this->falseValues, true)) {
+	public function parse(mixed $value): ?bool {
+
+		// Handle: null
+		if ($value === null) {
+			return $this->nullable ? null : false;
+		}
+
+		// Handle: Predefined values
+		if (is_string($value) && in_array(strtolower(trim($value)), $this->falseValues, true)) {
 			return false;
 		}
 
@@ -29,7 +36,7 @@ class BoolParser implements Parser {
 	}
 
 	/** @inheritdoc */
-	public function defineTargetClass(): string {
+	public function targetClass(): string {
 		return 'bool';
 	}
 }

@@ -3,23 +3,34 @@
 namespace Intellex\DataParser;
 
 use Intellex\DataParser\Exceptions\ClassNotFound;
-use Intellex\DataParser\Exceptions\PropertyNotInitialized;
+use Intellex\DataParser\Exceptions\ConstructorNotDefined;
+use Intellex\DataParser\Exceptions\NoValueForClassProperty;
+use Intellex\DataParser\Exceptions\UnableToParseAbstractData;
+use Intellex\NamingConvention\NamingConvention;
+use Intellex\NamingConvention\VariableSource;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
 
 /**
  * The main parser.
+ *
+ * @todo Require exact matches, or auto-convert.
+ * @todo Handle the differences between using different naming styles.
+ * @todo Handle properties with default values, handle null and missing.
+ * @todo Handle nullable properties.
+ * @todo Test all different styles of comment.
+ * @todo Different format.
  */
 class DataParser {
+	/** @var ParserPool The pool that hold preregistered parsers for classes and types. */
+	private readonly ParserPool $parserPool;
 
-	/** @var string[] The list of native PHP types. */
-	private const NATIVE_TYPES = [ 'int', 'float', 'bool', 'string' ];
+	/** @var class-string The string representation of the PHP array type. */
+	private const TYPE_ARRAY = "array";
 
-	/** @param ParserPool $parserPool The pool that hold preregistered parsers for classes and types. */
-	public function __construct(
-		private readonly ParserPool $parserPool = new ParserPool()
-	) {
+	public function __construct() {
+		$this->parserPool = new ParserPool();
 	}
 
 	/**
@@ -27,90 +38,55 @@ class DataParser {
 	 *
 	 * @template T
 	 *
-	 * @param class-string<T> $className The fully qualified name of the class to instantiate.
-	 * @param array           $data      The data to build the class instance from.
+	 * @param class-string<T> $className The fully qualified name of the class to instantiate (ie: Model::class).
+	 * @param mixed           $data      The data to build the class instance from, or a primitive scalar.
 	 *
-	 * @return T The built class.
-	 * @throws PropertyNotInitialized If at least one of the required properties is not initialized.
+	 * @return ?T The built class, or a simple scalar.
 	 */
-	public function parse(string $className, array $data): object {
-		try {
-			$instance = new $className;
-			$reflection = new ReflectionClass($instance);
+	public function parse(string $className, mixed $data): mixed {
 
-			// Go over all the data
-			foreach ($data as $key => $value) {
-				try {
-					$propertyName = $this->convertDataKeyToPropertyName($key);
-					$property = $reflection->getProperty($propertyName);
+		// Try predefined parsers
+		$parser = $this->parserPool->getParser($className);
+		if ($parser !== null) {
+			return $parser->parse($data);
+		}
 
-					// Extract and convert the raw value into the proper type or class
-					$propertyType = $property->getType()?->getName();
-					$value = $this->extractValue($propertyType, $value, $property);
-
-					$property->setValue($instance, $value);
-
-				} catch (ReflectionException) {
-					// If a key is present in the data, but not in the target class - it is safe to ignore it
-				}
-			}
-
-			// Make sure every property is initialized
-			foreach ($reflection->getProperties() as $property) {
-				if (!$property->isInitialized($instance)) {
-					throw new PropertyNotInitialized($className, $property->getName());
-				}
-			}
-
-			return $instance;
-
-		} catch (ReflectionException) {
+		// Assert: The class exists
+		if (!class_exists($className)) {
 			throw new ClassNotFound($className);
 		}
-	}
+		$reflector = new ReflectionClass($className);
 
-	/**
-	 * Extract a typed value from a raw value.
-	 *
-	 * @template T
-	 *
-	 * @param class-string<T>|null    $type     The class or type to extract from the value.
-	 * @param mixed                   $value    The original value.
-	 * @param ReflectionProperty|null $property The additional information about the class property, if applicable.
-	 *
-	 * @return ?T The extracted value in the requested type or class.
-	 */
-	public function extractValue(?string $type, mixed $value, ?ReflectionProperty $property = null): mixed {
-
-		// Null
-		if ($value === null) {
-			return null;
+		// Assert: Constructor is defined
+		$constructor = $reflector->getConstructor();
+		if ($constructor === null) {
+			throw new ConstructorNotDefined($className);
 		}
 
-		// If no type is specified do not alter the original value
-		if ($type === null || $type === 'null') {
-			return $value;
+		// Iterate over properties
+		$preparedData = [];
+		$properties = $reflector->getProperties();
+		foreach ($properties as $property) {
+			$type = $property->getType();
+
+			// Read the data
+			$value = $this->getValue($className, $property, $data);
+
+			// TODO: Add this as an option
+			// Auto convert null arrays to empty arrays
+			if ($value === null && $type !== null && !$type->allowsNull() && $type->getName() === 'array') {
+				$value = [];
+			}
+
+			$preparedData[$property->getName()] = $value;
 		}
 
-		// Arrays
-		if ($type === 'array') {
-
-			// Check to see if the type of the items in array are known
-			$arrayItemType = $property !== null && ($propertyDocComment = $property->getDocComment())
-				? $this->extractArrayItemType($propertyDocComment, $property->getDeclaringClass()->getNamespaceName())
-				: null;
-
-			return $this->parseArray($arrayItemType, $value);
+		// Try to convert into object
+		try {
+			return $reflector->newInstanceArgs($preparedData);
+		} catch (ReflectionException) {
+			throw new UnableToParseAbstractData($className, $data);
 		}
-
-		// Predefined class parsers
-		$parser = $this->parserPool->getParser($type);
-		if ($parser !== null) {
-			return $parser->parse($value);
-		}
-
-		// Other classes
-		return $this->parse($type, $value);
 	}
 
 	/**
@@ -118,56 +94,76 @@ class DataParser {
 	 *
 	 * @template T
 	 *
-	 * @param class-string<T>|null $className The fully qualified name of the class to instantiate, or null in order
-	 *                                        not to perform any changes.
-	 * @param array                $data      The data to build the class instances from.
+	 * @param class-string<T> $className The fully qualified name of the class to instantiate (ie: Model::class).
+	 * @param ?array<mixed>   $data      The data to build the class instances from.
 	 *
-	 * @return array<T> An array of the class instances.
+	 * @return array<T> An array of the class instances, or empty if $data is an empty array or null.
 	 */
-	public function parseArray(?string $className, array $data): array {
-		return array_map(fn($item) => $this->extractValue($className, $item), $data);
+	public function parseArray(string $className, ?array $data): array {
+		return $className !== self::TYPE_ARRAY
+			? array_map(fn($item) => $this->parse($className, $item), $data ?? [])
+			: $data;
 	}
 
 	/**
-	 * Convert the key from the data so that it exactly matches the class property name.
+	 * Extract a typed value from a raw value.
 	 *
-	 * @param string $propertyName The original key from the raw data.
+	 * @param class-string       $className The fully qualified name of the class.
+	 * @param ReflectionProperty $property  The property to get the value for.
+	 * @param array<mixed>       $data      The data to get the value from.
 	 *
-	 * @return string The name of the property in the class.
+	 * @return mixed The extracted value in the requested type or class.
 	 */
-	private function convertDataKeyToPropertyName(string $propertyName): string {
-		$propertyName = preg_replace('~_+~', ' ', $propertyName);
-		$propertyName = ucwords($propertyName);
-		$propertyName = str_replace(' ', '', $propertyName);
-		$propertyName[0] = strtolower($propertyName[0]);
+	public function getValue(string $className, ReflectionProperty $property, array $data): mixed {
+		$datasetKeys = array_keys($data);
+		$propertyType = $property->getType();
+		$propertyName = $property->getName();
 
-		return $propertyName;
+		// Get the key
+		$key = $this->getKey($propertyName, $datasetKeys);
+		if ($key === null) {
+			// TODO make a test for this
+			throw new NoValueForClassProperty($className, $propertyName, $data);
+		}
+
+		// Get the raw value
+		$value = $data[$key];
+
+		// If no type is specified do not alter the original value
+		if ($value === null || $propertyType === null) {
+			return $value;
+		}
+
+		// Arrays
+		$propertyTypeClassName = $propertyType->getName();
+		return $propertyTypeClassName === self::TYPE_ARRAY
+			? $this->parseArray(ReflectionHelper::extractArrayItemType($property), $value)
+			: $this->parse($propertyTypeClassName, $value);
 	}
 
 	/**
-	 * Extract the array type from the comment of the property.
+	 * Get the key from the data set to be used for a property.
 	 *
-	 * It only matches the form: 'ClassName[]'.
+	 * @param string   $propertyName The name of the property.
+	 * @param string[] $keys         The list of keys to choose from.
 	 *
-	 * @param string|null $docComment The comment describing the property.
-	 * @param string|null $namespace The namespace of the class.
-	 *
-	 * @return string|null The extracted
+	 * @return string|null The key to use, or null if there is no suitable one.
 	 */
-	private function extractArrayItemType(?string $docComment, ?string $namespace = null): ?string {
-		if (preg_match('~@var +(?<type>[\\\\\w-]+) *\[ *]~', $docComment ?? '', $match)) {
-			$type = $match['type'];
+	private function getKey(string $propertyName, array $keys): ?string {
 
-			// Do not use the namespace if it is already included in the type
-			if (in_array($type, self::NATIVE_TYPES, true) || $type[0] === '\\') {
-				$namespace = null;
-			}
+		// TODO
+		// Add predefined method
 
-			// The class should never have a leading namespace slash
-			$type = ltrim($type, '\\');
+		// Direct
+		if (in_array($propertyName, $keys)) {
+			return $propertyName;
+		}
 
-			// Handle the class name with both the namespace and without
-			return implode('\\', array_filter([ $namespace, $type ]));
+		// Auto detect
+		$namingConvention = NamingConvention::inferFromList($keys);
+		$alternativeKey = VariableSource::from($propertyName)->convertTo($namingConvention)->name;
+		if (in_array($alternativeKey, $keys)) {
+			return $alternativeKey;
 		}
 
 		return null;

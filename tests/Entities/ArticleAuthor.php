@@ -1,23 +1,14 @@
-<?php /** @noinspection PhpPropertyOnlyWrittenInspection */
-
-declare(strict_types = 1);
+<?php declare(strict_types = 1);
 
 namespace Intellex\DataParser\Tests\Entities;
 
 /**
- * Subclass for {@see Article}.
+ * The author or an {@see Article}.
  */
 class ArticleAuthor {
-
-	private int $id;
-
-	private string $name;
-
-	public function getId(): int {
-		return $this->id;
-	}
-
-	public function getName(): string {
-		return $this->name;
+	public function __construct(
+		public readonly int $id,
+		public readonly string $name,
+	) {
 	}
 }

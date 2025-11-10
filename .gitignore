@@ -1,10 +1,14 @@
 # Package manager
-/vendor/
+vendor/
+
+# Cache
+.phpunit.result.cache
 
 # OS generated files
 .DS_Store*
 ehthumbs.db
 Thumbs.db
 
-# IDE generated files
+# IDE
 .idea/
+.vscode/

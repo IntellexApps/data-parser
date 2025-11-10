@@ -5,9 +5,9 @@ namespace Intellex\DataParser\Exceptions;
 use Throwable;
 
 /**
- * The target class does not exist.
+ * The target class does not have a defined constructor.
  */
-class ClassNotFound extends AbstractDataParserException {
+class ConstructorNotDefined extends AbstractDataParserException {
 
 	/**
 	 * @param class-string $className The name of the class which is missing.
@@ -17,7 +17,7 @@ class ClassNotFound extends AbstractDataParserException {
 		?Throwable $previous = null,
 	) {
 		parent::__construct(
-			"Class does not exist: {$className}",
+			"Class does not have a defined constructor: {$className}",
 			$previous
 		);
 	}

@@ -1,35 +1,37 @@
 # Parse arrays into objects
 
-- Simple to use
-- Lightweight, no additional libraries used
+- Simple to use out of the box
 - Handles object arrays from the comment
 
-Installation
---------------------
+## Usage
 
-`composer require intellexapps/data-parser`
-
-Usage
---------------------
+`composer require intellex/data-parser`
 
 ```php
 use Intellex\DataParser\DataParser;
 
 // Classes
 class User {
-    public int $id;
-    public string $name;
-    public Car $car;
-    /** @var Role[] */ public array $roles;
+    public function __construct(
+        public readonly int $id;
+        public readonly string $name;
+        public readonly Car $car;
+        /** @var Role[] */
+        public readonly array $roles;
+    ) { }
 }
 class Car {
-    public string $manufacturer;
-    public string $model;
-    public int $year;
+    public function __construct(
+        public readonly string $manufacturer;
+        public readonly string $model;
+        public readonly int $year;
+    ) { }
 }
 class Role {
-    public string $module;
-    public string $access;
+    public function __construct(
+        public readonly string $module;
+        public readonly string $access;
+    ) { }
 }
 
 // Data
@@ -85,8 +87,7 @@ User Object
 )
 ```
 
-Arrays
---------------------
+## Arrays
 
 ```php
 use Intellex\DataParser\DataParser;
@@ -108,6 +109,6 @@ $dataParser = new DataParser();
 $users = $dataParser->parseArray(User::class, $data);
 ```
 
-Credits
---------------------
-Written by the [Intellex](https://intellex.rs/en) team.
+## Credits
+
+Written by the [Intellex team](https://intellex.rs/en).

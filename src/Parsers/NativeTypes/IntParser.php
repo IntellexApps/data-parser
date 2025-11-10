@@ -12,12 +12,12 @@ use Intellex\DataParser\Parsers\Parser;
 class IntParser implements Parser {
 
 	/** @inheritdoc */
-	public function parse(mixed $value): int {
+	public function parse(mixed $value): ?int {
 		return (int) $value;
 	}
 
 	/** @inheritdoc */
-	public function defineTargetClass(): string {
+	public function targetClass(): string {
 		return 'int';
 	}
 }

@@ -43,7 +43,7 @@ class ParserPool {
 	 * @param Parser $parser The parser to register.
 	 */
 	public function register(Parser $parser): void {
-		$this->pool[$parser->defineTargetClass()] = $parser;
+		$this->pool[$parser->targetClass()] = $parser;
 	}
 
 	/**

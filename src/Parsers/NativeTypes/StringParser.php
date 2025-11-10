@@ -11,13 +11,32 @@ use Intellex\DataParser\Parsers\Parser;
  */
 class StringParser implements Parser {
 
-	/** @inheritdoc */
-	public function parse(mixed $value): string {
-		return (string) $value;
+	public function __construct(
+		/** @var bool $autoTrim Set to true to automatically trim all values. */
+		private readonly bool $autoTrim = false,
+	) {
 	}
 
 	/** @inheritdoc */
-	public function defineTargetClass(): string {
+	public function parse(mixed $value): ?string {
+
+		// Handle: null
+		if ($value === null) {
+			return $value;
+		}
+
+		// Handle: Bool
+		if (is_bool($value)) {
+			return $value ? 'true' : 'false';
+		}
+
+		return $this->autoTrim
+			? trim((string) $value)
+			: (string) $value;
+	}
+
+	/** @inheritdoc */
+	public function targetClass(): string {
 		return 'string';
 	}
 }

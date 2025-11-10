@@ -3,13 +3,15 @@
 namespace Intellex\DataParser\Tests\Entities;
 
 /**
- * The category of an {@see Article}.
+ * A user that wrote a {@see Comment}.
  */
-class ArticleCategory {
+class ArticleCommentUser {
 	public function __construct(
 		public readonly int $id,
-		public readonly ?int $parentId,
 		public readonly string $name,
+		public readonly string $lastName,
+		public readonly ?string $email,
+		public readonly bool $isActive,
 	) {
 	}
 }
